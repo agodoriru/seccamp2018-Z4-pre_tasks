@@ -38,6 +38,7 @@ int analyze_ARP(u_char *data,int size);
 
 int print_EtherHeader(struct ether_header *eh,FILE *fp);
 char *MACaddress_int_to_str(u_char *hwaddr,char *buf,socklen_t size);
+char *IP_address_int_to_IP_address_str(u_int32_t ip,char *buff,socklen_t size);
 int print_ARP(struct ether_arp *arp,FILE *fp);
 int print_ICMP(struct icmp *icmp,FILE *fp);
 int print_IP_header(struct iphdr *iphdr,FILE *fp);
@@ -193,6 +194,8 @@ int print_EtherHeader(struct ether_header *eh,FILE *fp)
 
 int print_IP_header(struct iphdr *iphdr,FILE *fp){
     fprintf(fp, "============IP info=======================\n");
+
+    char buff[2048];
     static char *protocol[]={
 
         "undifined",
@@ -227,6 +230,10 @@ int print_IP_header(struct iphdr *iphdr,FILE *fp){
     }else{
         fprintf(fp, "undifined\n");
     }
+
+    fprintf(fp, "Source IP:%s\n", IP_address_int_to_IP_address_str(iphdr->saddr,buff,sizeof(buff)));
+    fprintf(fp, "target IP:%s\n", IP_address_int_to_IP_address_str(iphdr->daddr,buff,sizeof(buff)));
+
     fprintf(fp, "============IP info end=======================\n");
 
 }
@@ -238,6 +245,7 @@ int analyze_ICMP(u_char *data,int size){
 
 	ptr=data;
 	lest=size;
+	fprintf(stderr, "lest:%d\n", lest);
 
 
 	struct icmp *icmp;
@@ -296,6 +304,15 @@ char *MACaddress_int_to_str(u_char *hwaddr,char *buff,socklen_t size){
 	snprintf(buff,size,"%02x:%02x:%02x:%02x:%02x:%02x",
 		hwaddr[0],hwaddr[1],hwaddr[2],hwaddr[3],hwaddr[4],hwaddr[5]);
 	return(buff);
+}
+
+char *IP_address_int_to_IP_address_str(u_int32_t ip,char *buff,socklen_t size){
+	struct in_addr *addr;
+	addr=(struct in_addr *)&ip;
+	inet_ntop(AF_INET,addr,buff,size);
+
+	return(buff);
+
 }
 
 
