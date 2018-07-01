@@ -61,6 +61,7 @@ int main(int argc, char const *argv[]){
 	int count=0;
 
 	while((pkt = pcap_next(handle, &pkthdr))){
+			printf("\n\n");
 			
 			count++;
 			printf( "%d\n", count);
@@ -82,8 +83,6 @@ int analyze_Packet(u_char *data,int size){
 	ptr=data;
 	lest=size;
 
-	fprintf(stderr,"lest:%d\n",lest);
-	fprintf(stderr,"sizeof(struct ether_header)%d\n",sizeof(struct ether_header));
 
 	if(lest<sizeof(struct ether_header)){
 		fprintf(stderr, "lest(%d)<sizeof(struct ether_header)\n",lest );
@@ -94,6 +93,7 @@ int analyze_Packet(u_char *data,int size){
 	eh=(struct ether_header *)ptr;
 	ptr+=sizeof(struct ether_header);
 	lest-=sizeof(struct ether_header);
+
 
 
 
@@ -132,7 +132,10 @@ int analyze_IP(u_char *data,int size){
 	ptr+=sizeof(struct iphdr);
 	lest-=sizeof(struct iphdr);
 
+
 	oplen=iphdr->ihl*4-sizeof(struct iphdr);
+
+	fprintf(stderr, "IP option length:%d\n", oplen);
 
 	if(oplen>0){
 		if(oplen>=1500){
@@ -147,6 +150,7 @@ int analyze_IP(u_char *data,int size){
 	}
 
 	print_IP_header(iphdr,stdout);
+
 
 	if(iphdr->protocol==IPPROTO_ICMP){
 		analyze_ICMP(ptr,lest);
@@ -214,8 +218,8 @@ int print_IP_header(struct iphdr *iphdr,FILE *fp){
 
     fprintf(fp, "version:%u\n", iphdr->version);
     fprintf(fp, "header length:%u\n",iphdr->ihl);
-    fprintf(fp, "type of service:%u\n",iphdr->tos);
-    fprintf(fp, "packet total size:%u\n",iphdr->tot_len);
+    fprintf(fp, "type of service:%x\n",iphdr->tos);
+    fprintf(fp, "packet total size:%u\n",ntohs(iphdr->tot_len));
     fprintf(fp, "protocol:%u ",iphdr->protocol);
 
     if((iphdr->protocol)<=25){
@@ -232,10 +236,15 @@ int analyze_ICMP(u_char *data,int size){
 	u_char *ptr;
 	int lest;
 
+	ptr=data;
+	lest=size;
+
+
 	struct icmp *icmp;
 
 	icmp=(struct icmp *)ptr;
 	ptr+=sizeof(struct icmp);
+
 	lest-=sizeof(struct icmp);
 
 	print_ICMP(icmp,stdout);
