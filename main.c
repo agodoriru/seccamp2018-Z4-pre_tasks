@@ -294,7 +294,12 @@ int print_ICMP(struct icmp *icmp,FILE *fp){
 	}
 
 	fprintf(fp, "icmp code=%u\n",icmp->icmp_code);
-	fprintf(fp, "icmp_seq=%u\n",ntohs(icmp->icmp_cksum));
+	fprintf(fp, "icmp check sum:%u\n",ntohs(icmp->icmp_cksum));
+
+	if(icmp->icmp_type==0||icmp->icmp_type==8){
+		fprintf(fp, "icmp id:%u\n",ntohs(icmp->icmp_id));
+		fprintf(fp, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
+	}
     fprintf(fp, "===============ICMP info end=================\n");
    
 }
