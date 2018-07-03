@@ -40,7 +40,7 @@ int print_EtherHeader(struct ether_header *eh,FILE *fp);
 char *MACaddress_int_to_str(u_char *hwaddr,char *buf,socklen_t size);
 char *IP_address_int_to_IP_address_str(u_int32_t ip,char *buff,socklen_t size);
 int print_ARP(struct ether_arp *arp,FILE *fp);
-int print_ICMP(struct icmp *icmp,FILE *fp);
+int print_ICMP(struct icmp *icmp,FILE *fp,u_char *option,int lest);
 int print_IP_header(struct iphdr *iphdr,FILE *fp);
 
 int main(int argc, char const *argv[]){
@@ -61,6 +61,9 @@ int main(int argc, char const *argv[]){
 
 	int count=0;
 
+	FILE *data;
+	data=fopen("get_data.PNG","wb+");
+
 	while((pkt = pcap_next(handle, &pkthdr))){
 			printf("\n\n");
 			
@@ -72,6 +75,8 @@ int main(int argc, char const *argv[]){
 		
 	}
 	pcap_close(handle);
+
+	fclose(data);
 }
 
 int analyze_Packet(u_char *data,int size){
@@ -251,15 +256,29 @@ int analyze_ICMP(u_char *data,int size){
 	struct icmp *icmp;
 
 	icmp=(struct icmp *)ptr;
+
 	ptr+=sizeof(struct icmp);
+	lest-=sizeof(struct icmp);//lest-=32
 
-	lest-=sizeof(struct icmp);
+	u_char *icmp_data_plane;
+	icmp_data_plane=ptr;
+	ptr+=lest;
 
-	print_ICMP(icmp,stdout);
+	printf( "struct sizeof(icmp)%u\n",sizeof(struct icmp));
+
+	fprintf(stderr, "lest%u\n",lest );
+
+
+	fprintf(stderr, "\nlest:%d\n\n", lest);
+	lest+=20;
+	icmp_data_plane-=20;
+	print_ICMP(icmp,stdout,icmp_data_plane,lest);
 
 	return 0;
 }
-int print_ICMP(struct icmp *icmp,FILE *fp){
+int print_ICMP(struct icmp *icmp,FILE *fp,u_char *option,int lest){
+
+	fprintf(fp, "%u\n", lest);
 	static char *icmp_type[]={
 
 		"Echo Reply",//
@@ -300,8 +319,18 @@ int print_ICMP(struct icmp *icmp,FILE *fp){
 		fprintf(fp, "icmp id:%u\n",ntohs(icmp->icmp_id));
 		fprintf(fp, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
 	}
-    fprintf(fp, "===============ICMP info end=================\n");
-   
+
+	int i;
+	int row=0;
+
+	printf("%u\n",lest);
+
+	for(i=0;i<lest;i++){
+		printf("%02x", option[i]);
+	}
+
+    fprintf(fp, "\n===============ICMP info end=================\n");
+
 }
 
 
