@@ -246,43 +246,44 @@ int print_IP_header(struct iphdr *iphdr,FILE *fp){
 
 int analyze_ICMP(u_char *data,int size){
 	
+
+	printf("------------in analyze ICMP func-----------\n");
 	u_char *ptr;
 	int lest;
 
 	ptr=data;
 	lest=size;
-	fprintf(stderr, "lest:%d\n", lest);
-
+	printf( "%u\n", ptr);
+	printf( "%u\n", lest);
 
 	struct icmp *icmp;
-
 	icmp=(struct icmp *)ptr;
+	
+	// u_char *icmp_data_plane;
+	// icmp_data_plane=ptr;
 
-	ptr+=sizeof(struct icmp);
-	lest-=sizeof(struct icmp);//lest-=32
-
-	u_char *icmp_data_plane;
-	icmp_data_plane=ptr;
-	ptr+=lest;
+	// ptr+=sizeof(struct icmp);
+	// lest-=sizeof(struct icmp);
 
 	printf( "struct sizeof(icmp)%u\n",sizeof(struct icmp));
+	printf( "lest:%u\n",lest );
 
-	fprintf(stderr, "lest%u\n",lest );
+	// fprintf(stderr, "\nlest:%d\n\n", lest);
+	// lest+=20;
+	// icmp_data_plane-=20;
 
-
-	fprintf(stderr, "\nlest:%d\n\n", lest);
-	lest+=20;
-	icmp_data_plane-=20;
-	print_ICMP(icmp,stdout,icmp_data_plane,lest,f_data);
+	printf("\n------------end analyze ICMP func-----------\n");
+	print_ICMP(icmp,stdout,ptr,lest,f_data);
 
 	return 0;
 }
-int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *option,int lest,FILE *fp2){
+int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 
 	fprintf(fp1, "%u\n", lest);
+
 	static char *icmp_type[]={
 
-		"Echo Reply",//
+		"Echo Reply",
         "undefined",
         "undifined",
         "Destination Unreachable",
@@ -316,28 +317,42 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *option,int lest,FILE *fp2){
 	fprintf(fp1, "icmp code=%u\n",icmp->icmp_code);
 	fprintf(fp1, "icmp check sum:%u\n",ntohs(icmp->icmp_cksum));
 
-	if(icmp->icmp_type==0||icmp->icmp_type==8){
+	// else if(icmp->icmp_type==0||icmp->icmp_type==8){
+	// 	fprintf(fp1, "icmp id:%u\n",ntohs(icmp->icmp_id));
+	// 	fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
+	// }
+
+	int i;
+	int data_length;
+	
+
+	if(icmp->icmp_type==0){//Echo Request
+
+		data_length=(lest-8);//fix identifier and seq
+		data+=8;             //same
+
+		fprintf(fp1, "icmp id:%u\n",ntohs(icmp->icmp_id));//4
+		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));//4
+		fprintf(fp1, "data size:%ubytes\n", lest);
+
+		for(i=0;i<data_length;i++){
+				fprintf(fp1,"%02x", data[i]);
+		}
+
+		fwrite(data,1,data_length,fp2);
+
+	}else if(icmp->icmp_type==8){//Echo Request
 		fprintf(fp1, "icmp id:%u\n",ntohs(icmp->icmp_id));
 		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
 	}
 
-	int i;
-	int row=0;
-
-	printf("%u\n",lest);
-	if(icmp->icmp_type==0){
-		for(i=0;i<lest;i++){
-			fprintf(fp1,"%02x", option[i]);
-		}
-	}
-
 	// fwrite()
-	FILE *f_data;
-	f_data=fp2;
+	// FILE *f_data;
+	// f_data=fp2;
 	
-	if(icmp->icmp_type==0){
-		fwrite(option, 1, lest, f_data);
-	}
+	// if(icmp->icmp_type==0){
+	// 	fwrite(option, 1, lest, f_data);
+	// }
 	
 	
 
