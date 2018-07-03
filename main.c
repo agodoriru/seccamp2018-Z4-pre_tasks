@@ -40,8 +40,10 @@ int print_EtherHeader(struct ether_header *eh,FILE *fp);
 char *MACaddress_int_to_str(u_char *hwaddr,char *buf,socklen_t size);
 char *IP_address_int_to_IP_address_str(u_int32_t ip,char *buff,socklen_t size);
 int print_ARP(struct ether_arp *arp,FILE *fp);
-int print_ICMP(struct icmp *icmp,FILE *fp,u_char *option,int lest);
+int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *option,int lest,FILE *fp2);
 int print_IP_header(struct iphdr *iphdr,FILE *fp);
+
+FILE *f_data;
 
 int main(int argc, char const *argv[]){
 
@@ -62,7 +64,7 @@ int main(int argc, char const *argv[]){
 	int count=0;
 
 	FILE *data;
-	data=fopen("get_data.PNG","wb+");
+	f_data=fopen("png_get_daze.jpg","wb+");
 
 	while((pkt = pcap_next(handle, &pkthdr))){
 			printf("\n\n");
@@ -75,8 +77,7 @@ int main(int argc, char const *argv[]){
 		
 	}
 	pcap_close(handle);
-
-	fclose(data);
+	fclose(f_data);
 }
 
 int analyze_Packet(u_char *data,int size){
@@ -272,13 +273,13 @@ int analyze_ICMP(u_char *data,int size){
 	fprintf(stderr, "\nlest:%d\n\n", lest);
 	lest+=20;
 	icmp_data_plane-=20;
-	print_ICMP(icmp,stdout,icmp_data_plane,lest);
+	print_ICMP(icmp,stdout,icmp_data_plane,lest,f_data);
 
 	return 0;
 }
-int print_ICMP(struct icmp *icmp,FILE *fp,u_char *option,int lest){
+int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *option,int lest,FILE *fp2){
 
-	fprintf(fp, "%u\n", lest);
+	fprintf(fp1, "%u\n", lest);
 	static char *icmp_type[]={
 
 		"Echo Reply",//
@@ -303,33 +304,44 @@ int print_ICMP(struct icmp *icmp,FILE *fp,u_char *option,int lest){
 		
 	};
 
-	fprintf(fp, "===============ICMP info=================\n");
-	fprintf(fp, "icmp type=%u:",icmp -> icmp_type);
+	fprintf(fp1, "===============ICMP info=================\n");
+	fprintf(fp1, "icmp type=%u:",icmp -> icmp_type);
 
 	if(icmp->icmp_type<=18){
-		fprintf(fp, "%s\n",icmp_type[icmp->icmp_type]);
+		fprintf(fp1, "%s\n",icmp_type[icmp->icmp_type]);
 	}else{
-		fprintf(fp, "undifined\n");
+		fprintf(fp1, "undifined\n");
 	}
 
-	fprintf(fp, "icmp code=%u\n",icmp->icmp_code);
-	fprintf(fp, "icmp check sum:%u\n",ntohs(icmp->icmp_cksum));
+	fprintf(fp1, "icmp code=%u\n",icmp->icmp_code);
+	fprintf(fp1, "icmp check sum:%u\n",ntohs(icmp->icmp_cksum));
 
 	if(icmp->icmp_type==0||icmp->icmp_type==8){
-		fprintf(fp, "icmp id:%u\n",ntohs(icmp->icmp_id));
-		fprintf(fp, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
+		fprintf(fp1, "icmp id:%u\n",ntohs(icmp->icmp_id));
+		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
 	}
 
 	int i;
 	int row=0;
 
 	printf("%u\n",lest);
-
-	for(i=0;i<lest;i++){
-		printf("%02x", option[i]);
+	if(icmp->icmp_type==0){
+		for(i=0;i<lest;i++){
+			fprintf(fp1,"%02x", option[i]);
+		}
 	}
 
-    fprintf(fp, "\n===============ICMP info end=================\n");
+	// fwrite()
+	FILE *f_data;
+	f_data=fp2;
+	
+	if(icmp->icmp_type==0){
+		fwrite(option, 1, lest, f_data);
+	}
+	
+	
+
+    fprintf(fp1, "\n===============ICMP info end=================\n");
 
 }
 
