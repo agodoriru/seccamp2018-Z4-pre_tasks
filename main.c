@@ -35,22 +35,22 @@ int analyze_ICMP(u_char *data,int size);
 int analyze_Packet(u_char *data,int size);
 int analyze_ARP(u_char *data,int size);
 
-
 int print_EtherHeader(struct ether_header *eh,FILE *fp);
 char *MACaddress_int_to_str(u_char *hwaddr,char *buf,socklen_t size);
 char *IP_address_int_to_IP_address_str(u_int32_t ip,char *buff,socklen_t size);
 int print_ARP(struct ether_arp *arp,FILE *fp);
 int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *option,int lest,FILE *fp2);
 int print_IP_header(struct iphdr *iphdr,FILE *fp);
+int analyze_IP(u_char *data,int size);
+
 
 FILE *f_data;
 
 int main(int argc, char const *argv[]){
 
-    const u_char *pkt;
+    u_char *pkt;
     char errbuf[PCAP_ERRBUF_SIZE];
-    u_char buff[5012];
-    int size;
+    struct pcap_pkthdr pkthdr;
 
 	pcap_t *handle = pcap_open_offline_with_tstamp_precision(argv[1],PCAP_TSTAMP_PRECISION_NANO, errbuf);
 
@@ -59,41 +59,43 @@ int main(int argc, char const *argv[]){
     	return (-1);
 	}
 
-	struct pcap_pkthdr pkthdr;
-
 	int count=0;
 
-	FILE *data;
 	f_data=fopen("png_get_daze.jpg","wb+");
 
 	while((pkt = pcap_next(handle, &pkthdr))){
 			printf("\n\n");
 			
 			count++;
-			printf( "%d\n", count);
-			printf("packet length: %d byte\n", pkthdr.caplen);
+			fprintf(stdout, "==========================================================\n");
+			fprintf(stdout, "==========================================================\n");
+			fprintf(stdout, "==========================================================\n\n");
+
+			fprintf(stdout,"No.%d\n", count);
+			fprintf(stdout,"packet length : %d byte\n\n", pkthdr.caplen);
 			print_EtherHeader((struct ether_header *)pkt,stdout);
 			analyze_Packet(pkt,pkthdr.caplen);
 		
 	}
+
 	pcap_close(handle);
 	fclose(f_data);
+
+	return 0;
 }
 
 int analyze_Packet(u_char *data,int size){
 	
 	u_char *ptr;
 	int lest;
-
 	struct ether_header *eh;
 
 	ptr=data;
 	lest=size;
 
-
 	if(lest<sizeof(struct ether_header)){
 		fprintf(stderr, "lest(%d)<sizeof(struct ether_header)\n",lest );
-		return(-1);
+		return (-1);
 
 	}
 
@@ -101,31 +103,22 @@ int analyze_Packet(u_char *data,int size){
 	ptr+=sizeof(struct ether_header);
 	lest-=sizeof(struct ether_header);
 
-
-
-
 	if(ntohs(eh->ether_type)==ETHERTYPE_IP){
-		//analyze IP
 		analyze_IP(ptr,lest);
 	}
 
 	return 0;
 
-
 }
-
 
 int analyze_IP(u_char *data,int size){
 
 	u_char *ptr;
 	int lest;
-
 	struct iphdr *iphdr;
 
 	u_char *option;
 	int oplen;
-	int len;
-	unsigned short sum;
 
 	ptr=data;
 	lest=size;
@@ -139,25 +132,24 @@ int analyze_IP(u_char *data,int size){
 	ptr+=sizeof(struct iphdr);
 	lest-=sizeof(struct iphdr);
 
-
 	oplen=iphdr->ihl*4-sizeof(struct iphdr);
 
-	fprintf(stderr, "IP option length:%d\n", oplen);
+	
 
 	if(oplen>0){
 		if(oplen>=1500){
-			fprintf(stderr, "IP oplen:%d\n",oplen);
+			fprintf(stderr, "IP option length:%d\n", oplen);
 			return (-1);
 		}
 
 		option=ptr;
 		ptr+=oplen;
 		lest-=oplen;
+		// IP option (variable length)
 
 	}
 
 	print_IP_header(iphdr,stdout);
-
 
 	if(iphdr->protocol==IPPROTO_ICMP){
 		analyze_ICMP(ptr,lest);
@@ -169,33 +161,27 @@ int analyze_IP(u_char *data,int size){
 
 
 
-int print_EtherHeader(struct ether_header *eh,FILE *fp)
-{
+int print_EtherHeader(struct ether_header *eh,FILE *fp){
+
     char buf[80];
-    fprintf(fp,"===============ether header info=================\n");
+    fprintf(fp,"=============== Ether Header info =================\n");
+    fprintf(fp,"ether target host = %s\n",MACaddress_int_to_str(eh->ether_dhost,buf,sizeof(buf)));
+    fprintf(fp,"ether source host = %s\n",MACaddress_int_to_str(eh->ether_shost,buf,sizeof(buf)));
 
-    fprintf(fp,"ether_distination_host=%s\n",MACaddress_int_to_str(eh->ether_dhost,buf,sizeof(buf)));
-    fprintf(fp,"ether_source_host=%s\n",MACaddress_int_to_str(eh->ether_shost,buf,sizeof(buf)));
+    fprintf(fp,"ether_type = %02X",ntohs(eh->ether_type));
 
-    fprintf(fp,"ether_type=%02X",ntohs(eh->ether_type));
-    switch(ntohs(eh->ether_type)){
-        case	ETH_P_IP:
-            fprintf(fp,"(IP)\n");
-            break;
-        case	ETH_P_IPV6:
-            fprintf(fp,"(IPv6)\n");
-            break;
-        case	ETH_P_ARP:
-            fprintf(fp,"(ARP)\n");
-            break;
-        default:
-            fprintf(fp,"(unknown)\n");
-            break;
+    if(ntohs(eh->ether_type)==ETH_P_IP){
+
+    	fprintf(fp, " [IP]\n");
+    
+    }else{
+    	fprintf(fp, " [undifined]\n");
     }
-        fprintf(fp,"===============ether header info end=================\n");
 
+    fprintf(fp,"===============Ether Header info end=================\n\n");
 
-    return(0);
+    return 0;
+
 }
 
 int print_IP_header(struct iphdr *iphdr,FILE *fp){
@@ -225,14 +211,14 @@ int print_IP_header(struct iphdr *iphdr,FILE *fp){
 
     };
 
-    fprintf(fp, "version:%u\n", iphdr->version);
-    fprintf(fp, "header length:%u\n",iphdr->ihl);
-    fprintf(fp, "type of service:%x\n",iphdr->tos);
-    fprintf(fp, "packet total size:%u\n",ntohs(iphdr->tot_len));
-    fprintf(fp, "protocol:%u ",iphdr->protocol);
+    fprintf(fp, "version : %u\n", iphdr->version);
+    fprintf(fp, "header length : %u\n",iphdr->ihl);
+    fprintf(fp, "type of service : %x\n",iphdr->tos);
+    fprintf(fp, "packet total size : %u\n",ntohs(iphdr->tot_len));
+    fprintf(fp, "protocol : %u ",iphdr->protocol);
 
-    if((iphdr->protocol)<=25){
-        fprintf(fp, "%s\n",protocol[iphdr->protocol]);
+    if((iphdr->protocol)<=17){
+        fprintf(fp, "[%s]\n",protocol[iphdr->protocol]);
     }else{
         fprintf(fp, "undifined\n");
     }
@@ -242,44 +228,27 @@ int print_IP_header(struct iphdr *iphdr,FILE *fp){
 
     fprintf(fp, "============IP info end=======================\n");
 
+    return 0;
 }
 
 int analyze_ICMP(u_char *data,int size){
-	
 
-	printf("------------in analyze ICMP func-----------\n");
 	u_char *ptr;
 	int lest;
 
 	ptr=data;
 	lest=size;
-	printf( "%u\n", ptr);
-	printf( "%u\n", lest);
-
 	struct icmp *icmp;
+
 	icmp=(struct icmp *)ptr;
 	
-	// u_char *icmp_data_plane;
-	// icmp_data_plane=ptr;
-
-	// ptr+=sizeof(struct icmp);
-	// lest-=sizeof(struct icmp);
-
-	printf( "struct sizeof(icmp)%u\n",sizeof(struct icmp));
-	printf( "lest:%u\n",lest );
-
-	// fprintf(stderr, "\nlest:%d\n\n", lest);
-	// lest+=20;
-	// icmp_data_plane-=20;
-
-	printf("\n------------end analyze ICMP func-----------\n");
 	print_ICMP(icmp,stdout,ptr,lest,f_data);
 
 	return 0;
-}
-int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 
-	fprintf(fp1, "%u\n", lest);
+}
+
+int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 
 	static char *icmp_type[]={
 
@@ -305,7 +274,7 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 		
 	};
 
-	fprintf(fp1, "===============ICMP info=================\n");
+	fprintf(fp1, "\n===============ICMP info=================\n");
 	fprintf(fp1, "icmp type=%u:",icmp -> icmp_type);
 
 	if(icmp->icmp_type<=18){
@@ -317,14 +286,8 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 	fprintf(fp1, "icmp code=%u\n",icmp->icmp_code);
 	fprintf(fp1, "icmp check sum:%u\n",ntohs(icmp->icmp_cksum));
 
-	// else if(icmp->icmp_type==0||icmp->icmp_type==8){
-	// 	fprintf(fp1, "icmp id:%u\n",ntohs(icmp->icmp_id));
-	// 	fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
-	// }
-
 	int i;
 	int data_length;
-	
 
 	if(icmp->icmp_type==0){//Echo Request
 
@@ -334,9 +297,16 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 		fprintf(fp1, "icmp id:%u\n",ntohs(icmp->icmp_id));//4
 		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));//4
 		fprintf(fp1, "data size:%ubytes\n", lest);
-
+		fprintf(fp1, "raw data(hex)\n\n" );
 		for(i=0;i<data_length;i++){
-				fprintf(fp1,"%02x", data[i]);
+			
+			if(i==0){
+			}else if(i%16==0){
+				fprintf(fp1, "\n");
+			}
+			
+			fprintf(fp1,"%02x ", data[i] );
+			
 		}
 
 		fwrite(data,1,data_length,fp2);
@@ -346,20 +316,11 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
 	}
 
-	// fwrite()
-	// FILE *f_data;
-	// f_data=fp2;
-	
-	// if(icmp->icmp_type==0){
-	// 	fwrite(option, 1, lest, f_data);
-	// }
-	
-	
+    fprintf(fp1, "\n\n===============ICMP info end=================\n\n");
 
-    fprintf(fp1, "\n===============ICMP info end=================\n");
+    return 0;
 
 }
-
 
 char *MACaddress_int_to_str(u_char *hwaddr,char *buff,socklen_t size){
 	snprintf(buff,size,"%02x:%02x:%02x:%02x:%02x:%02x",
@@ -371,9 +332,7 @@ char *IP_address_int_to_IP_address_str(u_int32_t ip,char *buff,socklen_t size){
 	struct in_addr *addr;
 	addr=(struct in_addr *)&ip;
 	inet_ntop(AF_INET,addr,buff,size);
-
 	return(buff);
-
 }
 
 
