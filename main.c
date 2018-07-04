@@ -52,6 +52,11 @@ int main(int argc, char const *argv[]){
     char errbuf[PCAP_ERRBUF_SIZE];
     struct pcap_pkthdr pkthdr;
 
+    if(argv[1]==NULL){
+    	fprintf(stdout, "input data\n");
+    	return (-1);
+    }
+
 	pcap_t *handle = pcap_open_offline_with_tstamp_precision(argv[1],PCAP_TSTAMP_PRECISION_NANO, errbuf);
 
 	if (handle == NULL) {
