@@ -50,7 +50,8 @@ struct icmp_hdr{
     uint8_t type;
     uint8_t code;
     uint16_t cksum;
-    uint32_t seqnum
+    uint16_t iden;
+    uint16_t seqnum;
 };
 
 int main(int argc, char const *argv[]){
@@ -292,33 +293,31 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 	struct icmp_hdr* icmp_hdr;
 	icmp_hdr=(struct icmp_hdr*)ptr;
 	
-	fprintf(fp1, "%u\n", icmp_hdr->type);
-
 
 	fprintf(fp1, "\n===============ICMP info=================\n");
-	fprintf(fp1, "icmp type=%u:",icmp -> icmp_type);
-
+	
 	if(icmp->icmp_type<=18){
-		fprintf(fp1, "%s\n",icmp_type[icmp->icmp_type]);
+		fprintf(fp1, "%s\n",icmp_type[icmp_hdr->type]);
 	}else{
 		fprintf(fp1, "undifined\n");
 	}
 
-	fprintf(fp1, "icmp code=%u\n",icmp->icmp_code);
-	fprintf(fp1, "icmp check sum:%u\n",ntohs(icmp->icmp_cksum));
+	fprintf(fp1, "icmp code=%u\n",icmp_hdr->code);
+	fprintf(fp1, "icmp check sum:%u\n",ntohs(icmp_hdr->cksum));
 
 	int i;
 	int data_length;
 
-	if(icmp->icmp_type==0){//Echo Request
+	if(icmp_hdr->type==0&&icmp_hdr->type==0){//Echo Request
 
-		data_length=(lest-8);//fix identifier and seq
-		data+=8;             //same
+		uint8_t *data_ex=(struct icmp_hdr *)(icmp_hdr+1);
+		data_length=(lest-sizeof(struct icmp_hdr));
 
-		fprintf(fp1, "icmp id:%u\n",ntohs(icmp->icmp_id));//4
-		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));//4
-		fprintf(fp1, "data size:%ubytes\n", lest);
+		fprintf(fp1, "icmp id:%u\n",ntohs(icmp_hdr->iden));//4
+		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp_hdr->seqnum));//4
+		fprintf(fp1, "data size:%ubytes\n", data_length);
 		fprintf(fp1, "raw data(hex)\n\n" );
+
 		for(i=0;i<data_length;i++){
 			
 			if(i==0){
@@ -326,15 +325,15 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 				fprintf(fp1, "\n");
 			}
 			
-			fprintf(fp1,"%02x ", data[i] );
+			fprintf(fp1,"%02x ", data_ex[i] );
 			
-		}
+		}		
 
-		fwrite(data,1,data_length,fp2);
+		fwrite(data_ex,1,data_length,fp2);
 
 	}else if(icmp->icmp_type==8){//Echo Request
-		fprintf(fp1, "icmp id:%u\n",ntohs(icmp->icmp_id));
-		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp->icmp_seq));
+		fprintf(fp1, "icmp id:%u\n",ntohs(icmp_hdr->iden));
+		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp_hdr->seqnum));
 	}
 
     fprintf(fp1, "\n\n===============ICMP info end=================\n\n");
