@@ -46,6 +46,13 @@ int analyze_IP(u_char *data,int size);
 
 FILE *f_data;
 
+struct icmp_hdr{
+    uint8_t type;
+    uint8_t code;
+    uint16_t cksum;
+    uint32_t seqnum
+};
+
 int main(int argc, char const *argv[]){
 
     u_char *pkt;
@@ -246,7 +253,8 @@ int analyze_ICMP(u_char *data,int size){
 	struct icmp *icmp;
 
 	icmp=(struct icmp *)ptr;
-	
+
+
 	print_ICMP(icmp,stdout,ptr,lest,f_data);
 
 	return 0;
@@ -278,6 +286,14 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
         "Address Mask Reply",
 		
 	};
+
+	u_char *ptr=data;
+
+	struct icmp_hdr* icmp_hdr;
+	icmp_hdr=(struct icmp_hdr*)ptr;
+	
+	fprintf(fp1, "%u\n", icmp_hdr->type);
+
 
 	fprintf(fp1, "\n===============ICMP info=================\n");
 	fprintf(fp1, "icmp type=%u:",icmp -> icmp_type);
