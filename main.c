@@ -306,30 +306,29 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 	fprintf(fp1, "icmp check sum:%u\n",ntohs(icmp_hdr->cksum));
 
 	int i;
-	int data_length;
 
 	if(icmp_hdr->type==0&&icmp_hdr->type==0){//Echo Request
 
-		uint8_t *data_ex=(struct icmp_hdr *)(icmp_hdr+1);
-		data_length=(lest-sizeof(struct icmp_hdr));
+		uint8_t *raw_data=(struct icmp_hdr *)(icmp_hdr+1);
+		int raw_data_length=(lest-sizeof(struct icmp_hdr));
 
 		fprintf(fp1, "icmp id:%u\n",ntohs(icmp_hdr->iden));//4
 		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp_hdr->seqnum));//4
-		fprintf(fp1, "data size:%ubytes\n", data_length);
+		fprintf(fp1, "data size:%ubytes\n", raw_data_length);
 		fprintf(fp1, "raw data(hex)\n\n" );
 
-		for(i=0;i<data_length;i++){
+		for(i=0;i<raw_data_length;i++){
 			
 			if(i==0){
 			}else if(i%16==0){
 				fprintf(fp1, "\n");
 			}
 			
-			fprintf(fp1,"%02x ", data_ex[i] );
+			fprintf(fp1,"%02x ", raw_data[i] );
 			
 		}		
 
-		fwrite(data_ex,1,data_length,fp2);
+		fwrite(raw_data,1,raw_data_length,fp2);
 
 	}else if(icmp->icmp_type==8){//Echo Request
 		fprintf(fp1, "icmp id:%u\n",ntohs(icmp_hdr->iden));
