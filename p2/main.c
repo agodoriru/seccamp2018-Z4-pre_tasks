@@ -107,11 +107,11 @@ void write_packet(FILE* fp, const void* pkt, size_t len) {
 
 ////////////////////////////////////////////////////
 
-char filter_dest_ip[256];
-char filter_source_ip[256];
-char filter_protocol[256];
-char filter_dest_port[256];
-char filter_source_port[256];
+char *filter_dest_ip[256];
+char *filter_source_ip[256];
+char *filter_protocol[256];
+char *filter_dest_port[256];
+char *filter_source_port[256];
 
 
 char buff_2[65535];
@@ -316,6 +316,7 @@ char *get_ip_protocol(struct iphdr *iphdr){
     }else{
         // return "undifined";
     }
+
 }
 
 char *get_dest_ip(struct iphdr *iphdr){
