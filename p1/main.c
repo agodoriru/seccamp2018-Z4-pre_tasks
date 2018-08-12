@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-#include <asm/types.h>
+//#include <asm/types.h>
 #include <sys/types.h>
 #include <linux/if_packet.h>
 #include <linux/if_ether.h> 
