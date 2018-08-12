@@ -114,6 +114,11 @@ char filter_dest_port[256];
 char filter_source_port[256];
 
 
+char buff_2[65535];
+char buff_1[65535];
+
+int counter=0;
+
 int main(int argc, char const *argv[]){
 
     u_char *pkt;
@@ -126,7 +131,7 @@ int main(int argc, char const *argv[]){
     }
 
     input_filter_info();
-    output_filter_info();
+    // output_filter_info();
     // exit(0)
  
 
@@ -138,22 +143,22 @@ int main(int argc, char const *argv[]){
 
 	int count=0;
 
-	FILE *fp=fopen("output.pcap","wb+");
+	FILE *fp=fopen("output.pcap","wb");
 	write_filehdr(fp);
 	
 	while((pkt = pcap_next(handle, &pkthdr))){
 			count++;
-			fprintf(stdout, "==========================================================\n\n");
-			fprintf(stdout,"No.%d\n", count);
-			fprintf(stdout,"packet length : %d byte\n\n", pkthdr.caplen);
+			// fprintf(stdout, "==========================================================\n\n");
+			// fprintf(stdout,"No.%d\n", count);
+			// fprintf(stdout,"packet length : %d byte\n\n", pkthdr.caplen);
 			if(analyze_Packet(pkt,pkthdr.caplen)==1){
-				sleep(5);
-				write_packet(fp, pkt, sizeof(pkt));
+				counter++;
+				write_packet(fp, pkt, pkthdr.caplen);
 			}
 	}
 
 	pcap_close(handle);
-
+	fprintf(stdout, "%d\n",counter );
 	return 0;
 }
 
@@ -184,7 +189,7 @@ int analyze_Packet(u_char *data,int size){
 		// analyze_IP(ptr,lest);
 		
 	}
-	fprintf(stdout, "analyze ip\n");
+	// fprintf(stdout, "analyze ip\n");
 
 	if(lest<sizeof(struct iphdr)){
 		fprintf(stderr, "error\n");
@@ -197,8 +202,6 @@ int analyze_Packet(u_char *data,int size){
 
 	oplen=iphdr->ihl*4-sizeof(struct iphdr);
 
-	
-
 	if(oplen>0){
 		if(oplen>=1500){
 			fprintf(stderr, "IP option length:%d\n", oplen);
@@ -209,35 +212,29 @@ int analyze_Packet(u_char *data,int size){
 		ptr+=oplen;
 		lest-=oplen;
 		// IP option (variable length)
-
 	}
-
 
 	if(iphdr->protocol==IPPROTO_TCP){
 
-		output_filter_info();
+		// output_filter_info();
 		
-		fprintf(stdout, "==== IP info ====\n");
-		fprintf(stdout, "src ip:%s\n", get_src_ip(iphdr));
-		fprintf(stdout, "dest ip:%s\n", get_dest_ip(iphdr));
-		fprintf(stdout, "ip protocol:%s\n", get_ip_protocol(iphdr));
-		fprintf(stdout, "==== port info ====\n");
-		fprintf(stdout,"src port:%u\n",get_tcp_src_port(ptr));
-		fprintf(stdout,"dest port:%u\n",get_tcp_dest_port(ptr));
-		
-		fprintf(stdout, "\n");
-		fprintf(stdout, "dest ip:%s\n", get_dest_ip(iphdr));
-
+		// fprintf(stdout, "==== IP info ====\n");
+		// fprintf(stdout, "src ip:%s\n", get_src_ip(iphdr));
+		// fprintf(stdout, "dest ip:%s\n", get_dest_ip(iphdr));
+		// fprintf(stdout, "ip protocol:%s\n", get_ip_protocol(iphdr));
+		// fprintf(stdout, "==== port info ====\n");
+		// fprintf(stdout,"src port:%u\n",get_tcp_src_port(ptr));
+		// fprintf(stdout,"dest port:%u\n",get_tcp_dest_port(ptr));
+		// fprintf(stdout, "\n");
+		// fprintf(stdout, "dest ip:%s\n", get_dest_ip(iphdr));
 
 		return(check_packet(get_src_ip(iphdr),get_dest_ip(iphdr),get_ip_protocol(iphdr),
 			get_tcp_src_port(ptr),get_tcp_dest_port(ptr)));
-
 		
 	}else if(iphdr->protocol==IPPROTO_UDP){
 	
 		int packet_dest_port=get_udp_dest_port(ptr);
 		int packet_src_port=get_udp_dest_port(ptr);
-
 
 	}
 
@@ -322,12 +319,10 @@ char *get_ip_protocol(struct iphdr *iphdr){
 }
 
 char *get_dest_ip(struct iphdr *iphdr){
-	char buff_1[65535];
 	return(IP_address_int_to_IP_address_str(iphdr->daddr,buff_1,sizeof(buff_1)));
 }
 
 char *get_src_ip(struct iphdr *iphdr){
-	char buff_2[65535];
 	return(IP_address_int_to_IP_address_str(iphdr->saddr,buff_2,sizeof(buff_2)));
 }
 
@@ -343,8 +338,6 @@ char *MACaddress_int_to_str(u_char *hwaddr,char *buff,socklen_t size){
 		hwaddr[0],hwaddr[1],hwaddr[2],hwaddr[3],hwaddr[4],hwaddr[5]);
 	return(buff);
 }
-
-
 
 void input_filter_info(){
 	fprintf(stdout, "input filter dest ip:");
@@ -375,38 +368,35 @@ int check_packet(const char *src_ip,const char *dest_ip,const char *proto,const 
 		int chech_packet_arr[5]={0};
 		int check_count=0;
 
-			fprintf(stdout, "in check packet func \n" );
-			fprintf(stdout, "src ip          :%s\n",src_ip );
-			fprintf(stdout, "filter source ip:%s\n",filter_source_ip );
-			fprintf(stdout, "dest ip         :%s\n",dest_ip );
-			fprintf(stdout, "filter dest ip  :%s\n",filter_dest_ip );
+		// fprintf(stdout, "in check packet func \n" );
+		// fprintf(stdout, "src ip          :%s\n",src_ip );
+		// fprintf(stdout, "filter source ip:%s\n",filter_source_ip );
+		// fprintf(stdout, "dest ip         :%s\n",dest_ip );
+		// fprintf(stdout, "filter dest ip  :%s\n",filter_dest_ip );
 
-		if(strcmp(src_ip,filter_source_ip)==0||strcmp(filter_source_ip,any)==0){
-
-		
-			fprintf(stdout, "source IP:bingo\n");
+		if(strcmp(src_ip,filter_source_ip)==0||strcmp(filter_source_ip,any)==0){		
+			// fprintf(stdout, "source IP:bingo\n");
 			chech_packet_arr[1]=1;
 
 		}else{
-			fprintf(stdout, "source IP:miss\n" );
+			// fprintf(stdout, "source IP:miss\n" );
 		}
 
 		if(strcmp(dest_ip,filter_dest_ip)==0||strcmp(filter_dest_ip,any)==0){
 		
 
-			fprintf(stdout, "destination IP:bingo\n");
+			// fprintf(stdout, "destination IP:bingo\n");
 			chech_packet_arr[0]=1;
 		}else{
-			fprintf(stdout, "destination IP:miss\n" );
+			// fprintf(stdout, "destination IP:miss\n" );
 		}
 		
 		if(strcmp(proto,filter_protocol)==0||strcmp(filter_protocol,any)==0){
-
-			fprintf(stdout, "ip protocol:bingo\n");
+			// fprintf(stdout, "ip protocol:bingo\n");
 			chech_packet_arr[2]=1;
 
 		}else{
-			fprintf(stdout, "IP protocol:miss\n" );
+			// fprintf(stdout, "IP protocol:miss\n" );
 		}
 
 		char get_tcp_dest_port_str[256];
@@ -419,19 +409,18 @@ int check_packet(const char *src_ip,const char *dest_ip,const char *proto,const 
 		// fprintf(stdout, "%s\n", get_tcp_src_port_str);
 
 		if(strcmp(get_tcp_src_port_str,filter_source_port)==0||strcmp(filter_source_port,any)==0){
-			fprintf(stdout, "source port:bingo\n");
+			// fprintf(stdout, "source port:bingo\n");
 			chech_packet_arr[4]=1;
 		}else{
-			fprintf(stdout, "source port:miss\n" );
+			// fprintf(stdout, "source port:miss\n" );
 		}
 
 
 		if(strcmp(get_tcp_dest_port_str,filter_dest_port)==0||strcmp(filter_dest_port,any)==0){
-			fprintf(stdout, "destination port:bingo\n");
+			// fprintf(stdout, "destination port:bingo\n");
 			chech_packet_arr[3]=1;
-
 		}else{
-			fprintf(stdout, "destination port:miss\n" );
+			// fprintf(stdout, "destination port:miss\n" );
 		}
 
 
@@ -443,11 +432,8 @@ int check_packet(const char *src_ip,const char *dest_ip,const char *proto,const 
 
 			}
 		}
+		if(check_count==5){
 
-			fprintf(stdout, "%d\n",check_count );
-
-		if(check_count==4){
-			sleep(5);
 			return 1;
 		}else{
 			return 0;
