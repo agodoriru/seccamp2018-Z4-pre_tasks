@@ -54,10 +54,10 @@ uint16_t get_tcp_dest_port(const u_char * data);
 //int get_udp_dest_port(const u_char *data);
 //int get_udp_src_port(const u_char *data);
 
-char *get_dest_ip(struct iphdr *iphdr);
-char *get_src_ip(struct iphdr *iphdr);
+char *get_dest_ip(const struct iphdr *iphdr);
+char *get_src_ip(const struct iphdr *iphdr);
 
-char *get_ip_protocol(struct iphdr *iphdr);
+char *get_ip_protocol(const struct iphdr *iphdr);
 
 void input_filter_info(void);
 void output_filter_info(void);
@@ -258,18 +258,18 @@ int analyze_Packet(const u_char * data, bpf_u_int32 size)
 uint16_t get_tcp_src_port(const u_char * data)
 {
 	const u_char *ptr;
-	struct tcphdr *tcphdr;
+	const struct tcphdr *tcphdr;
 	ptr = data;
-	tcphdr = (struct tcphdr *)ptr;
+	tcphdr = (const struct tcphdr *)ptr;
 	return ntohs(tcphdr->source);
 }
 
 uint16_t get_tcp_dest_port(const u_char * data)
 {
 	const u_char *ptr;
-	struct tcphdr *tcphdr;
+	const struct tcphdr *tcphdr;
 	ptr = data;
-	tcphdr = (struct tcphdr *)ptr;
+	tcphdr = (const struct tcphdr *)ptr;
 	return ntohs(tcphdr->dest);
 }
 
@@ -292,7 +292,7 @@ int get_udp_src_port(const u_char *data){
 }
 */
 
-char *get_ip_protocol(struct iphdr *iphdr)
+char *get_ip_protocol(const struct iphdr *iphdr)
 {
 	static char *protocol[] = {
 		"undifined",
@@ -324,13 +324,13 @@ char *get_ip_protocol(struct iphdr *iphdr)
 	}
 }
 
-char *get_dest_ip(struct iphdr *iphdr)
+char *get_dest_ip(const struct iphdr *iphdr)
 {
 	return (IP_address_int_to_IP_address_str
 		(iphdr->daddr, buff_1, sizeof(buff_1)));
 }
 
-char *get_src_ip(struct iphdr *iphdr)
+char *get_src_ip(const struct iphdr *iphdr)
 {
 	return (IP_address_int_to_IP_address_str
 		(iphdr->saddr, buff_2, sizeof(buff_2)));
