@@ -32,6 +32,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <stdbool.h>
+#include "rdtsc.h"
 
 int analyze_ICMP(u_char * data, int size);
 bool analyze_Packet(const u_char * data, bpf_u_int32 size);
@@ -154,7 +155,10 @@ int main(int argc __attribute__((unused)), char const *argv[])
 	FILE *fp = fopen("output.pcap", "wb");
 	write_filehdr(fp);
 	output_filter_info();
-	
+
+	unsigned long long cnt_start, cnt_end;
+	cnt_start = rdtsc();
+
 	while ((pkt = pcap_next(handle, &pkthdr))) {
 		count++;
 		// fprintf(logfile, "==========================================================\n\n");
@@ -165,6 +169,8 @@ int main(int argc __attribute__((unused)), char const *argv[])
 			write_packet(fp, pkt, pkthdr.caplen);
 		}
 	}
+	cnt_end = rdtsc();
+	printf("rdtsc:%llu\n", cnt_end-cnt_start);
 	pcap_close(handle);
 	printf("match:%d\n", match);
 	printf("count:%d\n", count);
