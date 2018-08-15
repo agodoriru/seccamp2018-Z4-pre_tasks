@@ -1,7 +1,7 @@
 CC=gcc
 OBJS=main.o
 SRCS=$(OBJS:%.o=%.c)
-CFLAGS=-g -Wall -I include
+CFLAGS=-g -Wall -Werror
 LDLIBS=-lpcap
 TARGET=main
 $(TARGET):$(OBJS)
