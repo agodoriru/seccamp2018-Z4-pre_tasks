@@ -33,7 +33,7 @@
 #include <netinet/udp.h>
 
 int analyze_ICMP(u_char * data, int size);
-int analyze_Packet(const u_char * data, int size);
+int analyze_Packet(const u_char * data, bpf_u_int32 size);
 int analyze_ARP(u_char * data, int size);
 
 int print_EtherHeader(struct ether_header *eh, FILE * fp);
@@ -59,11 +59,13 @@ char *get_src_ip(struct iphdr *iphdr);
 
 char *get_ip_protocol(struct iphdr *iphdr);
 
-void input_filter_info();
-void output_filter_info();
+void input_filter_info(void);
+void output_filter_info(void);
 int check_packet(const char *src_ip, const char *dest_ip, const char *proto,
 		 uint16_t src_port, uint16_t dest_port);
 
+void write_filehdr(FILE *fp);
+void write_packet(FILE *fp, const void *pkt, uint32_t len);
 // in sample program ////////////////////////////////
 
 struct pcap_file_hdr {
@@ -96,7 +98,7 @@ void write_filehdr(FILE * fp)
 	fwrite(&fh, sizeof(fh), 1, fp);
 }
 
-void write_packet(FILE * fp, const void *pkt, size_t len)
+void write_packet(FILE * fp, const void *pkt, uint32_t len)
 {
 	struct pcap_pkt_hdr ph;
 	ph.ts_sec = 0;
@@ -109,18 +111,18 @@ void write_packet(FILE * fp, const void *pkt, size_t len)
 
 ////////////////////////////////////////////////////
 
-char filter_dest_ip[256];
-char filter_source_ip[256];
-char filter_protocol[256];
-char filter_dest_port[256];
-char filter_source_port[256];
+static char filter_dest_ip[256];
+static char filter_source_ip[256];
+static char filter_protocol[256];
+static char filter_dest_port[256];
+static char filter_source_port[256];
 
-char buff_2[65535];
-char buff_1[65535];
+static char buff_2[65535];
+static char buff_1[65535];
 
-int counter = 0;
+static int counter = 0;
 
-FILE *logfile;
+static FILE *logfile;
 
 int main(int argc, char const *argv[])
 {
@@ -172,10 +174,10 @@ int main(int argc, char const *argv[])
 	return 0;
 }
 
-int analyze_Packet(const u_char * data, int size)
+int analyze_Packet(const u_char * data, bpf_u_int32 size)
 {
 	const u_char *ptr;
-	int lest;
+	bpf_u_int32 lest;
 	struct ether_header *eh;
 	struct iphdr *iphdr;
 	const u_char *option;
@@ -350,7 +352,7 @@ char *MACaddress_int_to_str(u_char * hwaddr, char *buff, socklen_t size)
 	return (buff);
 }
 
-void input_filter_info()
+void input_filter_info(void)
 {
 	printf("input filter dest ip:");
 	scanf("%s", filter_dest_ip);
@@ -364,7 +366,7 @@ void input_filter_info()
 	scanf("%s", filter_source_port);
 }
 
-void output_filter_info()
+void output_filter_info(void)
 {
 	fprintf(logfile,
 		" ======================= filter info =======================\n");
