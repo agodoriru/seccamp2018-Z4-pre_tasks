@@ -124,7 +124,7 @@ static int counter = 0;
 
 static FILE *logfile;
 
-int main(int argc, char const *argv[])
+int main(int argc __attribute__((unused)), char const *argv[])
 {
 	const u_char *pkt;
 	char errbuf[PCAP_ERRBUF_SIZE];
