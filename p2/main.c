@@ -178,10 +178,10 @@ int analyze_Packet(const u_char * data, bpf_u_int32 size)
 {
 	const u_char *ptr;
 	bpf_u_int32 lest;
-	struct ether_header *eh;
-	struct iphdr *iphdr;
+	const struct ether_header *eh;
+	const struct iphdr *iphdr;
 	const u_char *option;
-	int oplen;
+	bpf_u_int32 oplen;
 
 	ptr = data;
 	lest = size;
@@ -191,7 +191,7 @@ int analyze_Packet(const u_char * data, bpf_u_int32 size)
 		return (-1);
 	}
 
-	eh = (struct ether_header *)ptr;
+	eh = (const struct ether_header *)ptr;
 	ptr += sizeof(struct ether_header);
 	lest -= sizeof(struct ether_header);
 
@@ -207,7 +207,7 @@ int analyze_Packet(const u_char * data, bpf_u_int32 size)
 		return (-1);
 	}
 
-	iphdr = (struct iphdr *)ptr;
+	iphdr = (const struct iphdr *)ptr;
 	ptr += sizeof(struct iphdr);
 	lest -= sizeof(struct iphdr);
 
