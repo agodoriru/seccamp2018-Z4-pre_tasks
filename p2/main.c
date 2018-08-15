@@ -108,11 +108,11 @@ void write_packet(FILE* fp, const void* pkt, size_t len) {
 
 ////////////////////////////////////////////////////
 
-char *filter_dest_ip[256];
-char *filter_source_ip[256];
-char *filter_protocol[256];
-char *filter_dest_port[256];
-char *filter_source_port[256];
+char filter_dest_ip[256];
+char filter_source_ip[256];
+char filter_protocol[256];
+char filter_dest_port[256];
+char filter_source_port[256];
 
 
 char buff_2[65535];
@@ -343,15 +343,15 @@ char *MACaddress_int_to_str(u_char *hwaddr,char *buff,socklen_t size){
 
 void input_filter_info(){
 	fprintf(stdout, "input filter dest ip:");
-    scanf("%s",&filter_dest_ip);
+    scanf("%s",filter_dest_ip);
     fprintf(stdout, "input filter source ip:");
-    scanf("%s",&filter_source_ip);
+    scanf("%s",filter_source_ip);
     fprintf(stdout, "input filter protocol:");
-    scanf("%s",&filter_protocol);
+    scanf("%s",filter_protocol);
     fprintf(stdout, "input filter dest port:");
-    scanf("%s",&filter_dest_port);
+    scanf("%s",filter_dest_port);
     fprintf(stdout, "input filter source port:");
-    scanf("%s",&filter_source_port);
+    scanf("%s",filter_source_port);
 }
 
 void output_filter_info(){
