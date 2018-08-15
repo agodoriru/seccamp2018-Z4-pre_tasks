@@ -31,13 +31,14 @@
 #include <netinet/if_ether.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <stdbool.h>
 
 int analyze_ICMP(u_char * data, int size);
-int analyze_Packet(const u_char * data, bpf_u_int32 size);
+bool analyze_Packet(const u_char * data, bpf_u_int32 size);
 int analyze_ARP(u_char * data, int size);
 
 int print_EtherHeader(struct ether_header *eh, FILE * fp);
-char *MACaddress_int_to_str(u_char * hwaddr, char *buf, socklen_t size);
+char *MACaddress_int_to_str(const uint8_t * hwaddr, char *buf, size_t size);
 char *IP_address_int_to_IP_address_str(u_int32_t ip, char *buff,
 				       socklen_t size);
 int print_ARP(struct ether_arp *arp, FILE * fp);
@@ -49,11 +50,6 @@ int analyze_IP(u_char * data, int size);
 int print_tcp(struct tcphdr *tcphdr, FILE * fp);
 int analyze_TCP(u_char * data, int size);
 
-uint16_t get_tcp_src_port(const u_char * data);
-uint16_t get_tcp_dest_port(const u_char * data);
-//int get_udp_dest_port(const u_char *data);
-//int get_udp_src_port(const u_char *data);
-
 char *get_dest_ip(const struct iphdr *iphdr);
 char *get_src_ip(const struct iphdr *iphdr);
 
@@ -61,7 +57,7 @@ char *get_ip_protocol(const struct iphdr *iphdr);
 
 void input_filter_info(void);
 void output_filter_info(void);
-int check_packet(const char *src_ip, const char *dest_ip, const char *proto,
+bool check_packet(const char *src_ip, const char *dest_ip, const char *proto,
 		 uint16_t src_port, uint16_t dest_port);
 
 void write_filehdr(FILE *fp);
@@ -120,7 +116,7 @@ static char filter_source_port[256];
 static char buff_2[65535];
 static char buff_1[65535];
 
-static int counter = 0;
+static int match = 0;
 
 static FILE *logfile;
 
@@ -157,54 +153,71 @@ int main(int argc __attribute__((unused)), char const *argv[])
 
 	FILE *fp = fopen("output.pcap", "wb");
 	write_filehdr(fp);
-
+	output_filter_info();
+	
 	while ((pkt = pcap_next(handle, &pkthdr))) {
 		count++;
 		// fprintf(logfile, "==========================================================\n\n");
-		// fprintf(logfile,"No.%d\n", count);
+		fprintf(logfile,"\nNo.%d\n", count);
 		// fprintf(logfile,"packet length : %d byte\n\n", pkthdr.caplen);
-		if (analyze_Packet(pkt, pkthdr.caplen) == 1) {
-			counter++;
+		if (analyze_Packet(pkt, pkthdr.caplen) == true) {
+			match++;
 			write_packet(fp, pkt, pkthdr.caplen);
 		}
 	}
 	pcap_close(handle);
-	printf("match:%d\n", counter);
+	printf("match:%d\n", match);
+	printf("count:%d\n", count);
 	fclose(logfile);
 	return 0;
 }
 
-int analyze_Packet(const u_char * data, bpf_u_int32 size)
+bool analyze_Packet(const u_char * data, bpf_u_int32 size)
 {
 	const u_char *ptr;
 	bpf_u_int32 lest;
 	const struct ether_header *eh;
 	const struct iphdr *iphdr;
 	const u_char *option;
-	bpf_u_int32 oplen;
+	unsigned int oplen;
 
 	ptr = data;
 	lest = size;
 
 	if (lest < sizeof(struct ether_header)) {
 		fprintf(stderr, "lest(%d)<sizeof(struct ether_header)\n", lest);
-		return (-1);
+		return false;
 	}
 
 	eh = (const struct ether_header *)ptr;
 	ptr += sizeof(struct ether_header);
 	lest -= sizeof(struct ether_header);
 
-	if (ntohs(eh->ether_type) != ETHERTYPE_IP) {
-		// fprintf(logfile, "analyzing ip\n" );
-		// analyze_IP(ptr,lest);
+	uint16_t ether_type=ntohs(eh->ether_type);
 
+	char buf[80];
+	fprintf(logfile,"==== ether info ====\n");
+	fprintf(logfile,"ether dest host:%s\n",MACaddress_int_to_str(eh->ether_dhost,buf,sizeof(buf)));
+	fprintf(logfile,"ether src  host:%s\n",MACaddress_int_to_str(eh->ether_shost,buf,sizeof(buf)));
+	fprintf(logfile,"ether type:0x%02X ",ether_type);
+
+	switch(ether_type){
+		case ETHERTYPE_IP:
+			fprintf(logfile, "[IP]\n");
+			break;
+		case ETHERTYPE_ARP:
+			fprintf(logfile, "[ARP]\n");
+			return false;
+		default:
+			fprintf(logfile,"\n");
+			return false;
 	}
+
 	// fprintf(logfile, "analyze ip\n");
 
 	if (lest < sizeof(struct iphdr)) {
 		fprintf(stderr, "error\n");
-		return (-1);
+		return false;
 	}
 
 	iphdr = (const struct iphdr *)ptr;
@@ -213,10 +226,16 @@ int analyze_Packet(const u_char * data, bpf_u_int32 size)
 
 	oplen = iphdr->ihl * 4 - sizeof(struct iphdr);
 
+	fprintf(logfile, "==== IP info ====\n");
+	fprintf(logfile, "src ip:%s\n", get_src_ip(iphdr));
+	fprintf(logfile, "dest ip:%s\n", get_dest_ip(iphdr));
+	fprintf(logfile, "ip protocol:%s\n", get_ip_protocol(iphdr));
+	fprintf(logfile, "oplen:%u\n", oplen);
+
 	if (oplen > 0) {
 		if (oplen >= 1500) {
 			fprintf(stderr, "IP option length:%d\n", oplen);
-			return (-1);
+			return false;
 		}
 
 		option = ptr;
@@ -226,71 +245,34 @@ int analyze_Packet(const u_char * data, bpf_u_int32 size)
 	}
 
 	if (iphdr->protocol == IPPROTO_TCP) {
-		output_filter_info();
-		fprintf(logfile, "==== IP info ====\n");
-		fprintf(logfile, "src ip:%s\n", get_src_ip(iphdr));
-		fprintf(logfile, "dest ip:%s\n", get_dest_ip(iphdr));
-		fprintf(logfile, "ip protocol:%s\n", get_ip_protocol(iphdr));
-		fprintf(logfile, "==== port info ====\n");
-		fprintf(logfile, "src port:%u\n", get_tcp_src_port(ptr));
-		fprintf(logfile, "dest port:%u\n", get_tcp_dest_port(ptr));
-		fprintf(logfile, "\n");
-		fprintf(logfile, "dest ip:%s\n", get_dest_ip(iphdr));
+		const struct tcphdr *tcphdr = (const struct tcphdr *)ptr;
 
-		int res =
+		fprintf(logfile, "==== TCP info ====\n");
+		fprintf(logfile, "src port:%u\n", ntohs(tcphdr->source));
+		fprintf(logfile, "dest port:%u\n", ntohs(tcphdr->dest));
+		fprintf(logfile, "seq:%u\n", ntohl(tcphdr->seq));
+		fprintf(logfile, "ack:%u\n", ntohl(tcphdr->ack_seq));
+
+		bool res =
 		    check_packet(get_src_ip(iphdr), get_dest_ip(iphdr),
 				 get_ip_protocol(iphdr),
-				 get_tcp_src_port(ptr), get_tcp_dest_port(ptr));
+				 ntohs(tcphdr->source), ntohs(tcphdr->dest));
 
 		fprintf(logfile, "result:%d\n", res);
 
 		return res;
-
 	} else if (iphdr->protocol == IPPROTO_UDP) {
-		//int packet_dest_port=get_udp_dest_port(ptr);
-		//int packet_src_port=get_udp_dest_port(ptr);
+		const struct udphdr *udphdr = (const struct udphdr *)ptr;
+
+		fprintf(logfile, "==== UDP info ====\n");
+		fprintf(logfile, "src port:%u\n", ntohs(udphdr->source));
+		fprintf(logfile, "dest port:%u\n", ntohs(udphdr->dest));
+
+		return false;
 	}
-
-	return 0;
-
-}
-
-uint16_t get_tcp_src_port(const u_char * data)
-{
-	const u_char *ptr;
-	const struct tcphdr *tcphdr;
-	ptr = data;
-	tcphdr = (const struct tcphdr *)ptr;
-	return ntohs(tcphdr->source);
-}
-
-uint16_t get_tcp_dest_port(const u_char * data)
-{
-	const u_char *ptr;
-	const struct tcphdr *tcphdr;
-	ptr = data;
-	tcphdr = (const struct tcphdr *)ptr;
-	return ntohs(tcphdr->dest);
-}
-
-/*
-int get_udp_dest_port(const u_char *data){
-	const u_char *ptr;
-	struct udphdr *udphdr;
-	ptr=data;
-	udphdr=(struct udphdr *)ptr;
-	return ntohs(udphdr->dest);
-}
-
-int get_udp_src_port(const u_char *data){
-	const u_char *ptr;
-	struct udphdr *udphdr;
-	ptr=data;
-	udphdr=(struct udphdr *)ptr;
-	return ntohs(udphdr->source);
+	return false;
 
 }
-*/
 
 char *get_ip_protocol(const struct iphdr *iphdr)
 {
@@ -344,7 +326,7 @@ char *IP_address_int_to_IP_address_str(u_int32_t ip, char *buff, socklen_t size)
 	return (buff);
 }
 
-char *MACaddress_int_to_str(u_char * hwaddr, char *buff, socklen_t size)
+char *MACaddress_int_to_str(const uint8_t * hwaddr, char *buff, size_t size)
 {
 	snprintf(buff, size, "%02x:%02x:%02x:%02x:%02x:%02x",
 		 hwaddr[0], hwaddr[1], hwaddr[2], hwaddr[3], hwaddr[4],
@@ -380,7 +362,7 @@ void output_filter_info(void)
 	// exit(0);
 }
 
-int check_packet(const char *src_ip, const char *dest_ip, const char *proto,
+bool check_packet(const char *src_ip, const char *dest_ip, const char *proto,
 		 uint16_t src_port, uint16_t dest_port)
 {
 	const char *any = "any";
