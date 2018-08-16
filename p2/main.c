@@ -108,8 +108,8 @@ void write_packet(FILE * fp, const void *pkt, uint32_t len)
 
 ////////////////////////////////////////////////////
 
-static uint32_t filter_source_ip;
-static uint32_t filter_dest_ip;
+static struct in_addr filter_source_ip;
+static struct in_addr filter_dest_ip;
 static uint16_t filter_dest_port;
 static uint16_t filter_source_port;
 static uint8_t  filter_protocol;
@@ -358,9 +358,12 @@ int input_filter_info(void)
 		fprintf(stderr,"scanf failed\n");
 		return -1;
 	}
-	filter_dest_ip = inet_addr(dest_ip);
-	if(filter_dest_ip == INADDR_NONE){
-		fprintf(stderr,"invalid address\n");
+	res = inet_pton(AF_INET, dest_ip, &filter_dest_ip);
+	if(res == -1) {
+		perror("inet_pton");
+		return -1;
+	}else if(res == 0) {
+		fprintf(stderr, "invalid address\n");
 		return -1;
 	}
 
@@ -373,9 +376,12 @@ int input_filter_info(void)
 	}else if(res != 1) {
 		fprintf(stderr,"scanf failed\n");
 	}
-	filter_source_ip = inet_addr(src_ip);
-	if(filter_source_ip==INADDR_NONE) {
-		fprintf(stderr,"invalid address\n");
+	res = inet_pton(AF_INET, src_ip, &filter_source_ip);
+	if(res == -1) {
+		perror("inet_pton");
+		return -1;
+	}else if(res == 0) {
+		fprintf(stderr, "invalid address\n");
 		return -1;
 	}
 
@@ -455,13 +461,10 @@ int input_filter_info(void)
 
 void output_filter_info(void)
 {
-	struct in_addr source = { filter_source_ip };
-	struct in_addr dest   = { filter_dest_ip };
-
 	fprintf(logfile,
 		" ======================= filter info =======================\n");
-	fprintf(logfile, " * filter_dest_ip:%s\n", inet_ntoa(dest));
-	fprintf(logfile, " * filter_source_ip:%s\n", inet_ntoa(source));
+	fprintf(logfile, " * filter_dest_ip:%s\n", inet_ntoa(filter_dest_ip));
+	fprintf(logfile, " * filter_source_ip:%s\n", inet_ntoa(filter_source_ip));
 	fprintf(logfile, " * filter_protocol:%hhu\n", filter_protocol);
 	fprintf(logfile, " * filter_dest_port:%u\n", ntohs(filter_dest_port));
 	fprintf(logfile, " * filter_source_port:%u\n", ntohs(filter_source_port));
@@ -477,26 +480,24 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 	int check_count = 0;
 	const struct tcphdr *tcphdr = (const struct tcphdr *)l4hdr;
 
-	//struct in_addr source = { filter_source_ip };
-	//struct in_addr dest   = { filter_dest_ip };
 	//struct in_addr source_in_ip = {iphdr->saddr};
 	//struct in_addr dest_in_ip = {iphdr->daddr};
 
 	//fprintf(logfile, "in check packet func \n" );
 	//fprintf(logfile, "src ip          :%s\n",inet_ntoa(source_in_ip) );
-	//fprintf(logfile, "filter source ip:%s\n",inet_ntoa(source) );
+	//fprintf(logfile, "filter source ip:%s\n",inet_ntoa(filter_source_ip) );
 	//fprintf(logfile, "dest ip         :%s\n",inet_ntoa(dest_in_ip) );
-	//fprintf(logfile, "filter dest ip  :%s\n",inet_ntoa(dest) );
+	//fprintf(logfile, "filter dest ip  :%s\n",inet_ntoa(filter_dest_ip) );
 
 
-	if (iphdr->saddr == filter_source_ip ) {
+	if (iphdr->saddr == filter_source_ip.s_addr) {
 		//fprintf(logfile, "source IP  :   bingo\n");
 		chech_packet_arr[0] = 1;
 	} else {
 		// fprintf(logfile, "source IP:miss\n" );
 	}
 
-	if (iphdr->daddr == filter_dest_ip ) {
+	if (iphdr->daddr == filter_dest_ip.s_addr) {
 		//fprintf(logfile, "destination IP:bingo\n");
 		chech_packet_arr[1] = 1;
 	} else {
