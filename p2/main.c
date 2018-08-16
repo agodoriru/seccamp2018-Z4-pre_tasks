@@ -55,7 +55,7 @@ char *get_src_ip(const struct iphdr *iphdr);
 
 char *get_ip_protocol(const struct iphdr *iphdr);
 
-void input_filter_info(void);
+int input_filter_info(void);
 void output_filter_info(void);
 bool check_packet(const struct iphdr *iphdr, const void *l4hdr);
 
@@ -106,11 +106,11 @@ void write_packet(FILE * fp, const void *pkt, uint32_t len)
 
 ////////////////////////////////////////////////////
 
-static char filter_dest_ip[256];
-static char filter_source_ip[256];
-static char filter_protocol[256];
+static uint32_t filter_source_ip;
+static uint32_t filter_dest_ip;
 static uint16_t filter_dest_port;
 static uint16_t filter_source_port;
+static char filter_protocol[65535];
 
 static char buff_2[65535];
 static char buff_1[65535];
@@ -135,7 +135,11 @@ int main(int argc __attribute__((unused)), char const *argv[])
 		fprintf(stderr, "err cant open file");
 		return (-1);
 	}
-	input_filter_info();
+	while(1){
+		int res = input_filter_info();
+		if (res == 0)
+			break;
+	}
 	// output_filter_info();
 	// exit(0)
 
@@ -331,15 +335,31 @@ char *MACaddress_int_to_str(const uint8_t * hwaddr, char *buff, size_t size)
 	return (buff);
 }
 
-void input_filter_info(void)
+int input_filter_info(void)
 {
 	uint16_t dest_port;
 	uint16_t src_port;
+	static char dest_ip[256];
+	static char src_ip[256];
+
 
 	printf("input filter dest ip:");
-	scanf("%s", filter_dest_ip);
+	scanf("%s", dest_ip);
+	printf("(%s)\n", dest_ip);
+	filter_dest_ip = inet_addr(dest_ip);
+	if(filter_dest_ip==INADDR_NONE){
+		fprintf(stderr,"invalid address\n");
+		return -1;
+	}
+
 	printf("input filter source ip:");
-	scanf("%s", filter_source_ip);
+	scanf("%s", src_ip);
+	filter_source_ip = inet_addr(src_ip);
+	if(filter_source_ip==INADDR_NONE) {
+		fprintf(stderr,"invalid address\n");
+		return -1;
+	}
+
 	printf("input filter protocol:");
 	scanf("%s", filter_protocol);
 	printf("input filter dest port:");
@@ -349,15 +369,19 @@ void input_filter_info(void)
 
 	filter_dest_port = htons(dest_port);
 	filter_source_port = htons(src_port);
+	return 0;
 
 }
 
 void output_filter_info(void)
 {
+	struct in_addr source = { filter_source_ip };
+	struct in_addr dest   = { filter_dest_ip };
+
 	fprintf(logfile,
 		" ======================= filter info =======================\n");
-	fprintf(logfile, " * filter_dest_ip:%s\n", filter_dest_ip);
-	fprintf(logfile, " * filter_source_ip:%s\n", filter_source_ip);
+	fprintf(logfile, " * filter_dest_ip:%s\n", inet_ntoa(dest));
+	fprintf(logfile, " * filter_source_ip:%s\n", inet_ntoa(source));
 	fprintf(logfile, " * filter_protocol:%s\n", filter_protocol);
 	fprintf(logfile, " * filter_dest_port:%u\n", ntohs(filter_dest_port));
 	fprintf(logfile, " * filter_source_port:%u\n", ntohs(filter_source_port));
@@ -373,26 +397,26 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 	int check_count = 0;
 	const struct tcphdr *tcphdr = (const struct tcphdr *)l4hdr;
 
-	char *src_ip = get_src_ip(iphdr);
-	char *dest_ip = get_dest_ip(iphdr);
+	struct in_addr source = { filter_source_ip };
+	struct in_addr dest   = { filter_dest_ip };
+	struct in_addr source_in_ip = {iphdr->saddr};
+	struct in_addr dest_in_ip = {iphdr->daddr};
 
 	fprintf(logfile, "in check packet func \n" );
-	fprintf(logfile, "src ip          :%s\n",src_ip );
-	fprintf(logfile, "filter source ip:%s\n",filter_source_ip );
-	fprintf(logfile, "dest ip         :%s\n",dest_ip );
-	fprintf(logfile, "filter dest ip  :%s\n",filter_dest_ip );
+	fprintf(logfile, "src ip          :%s\n",inet_ntoa(source_in_ip) );
+	//fprintf(logfile, "filter source ip:%s\n",inet_ntoa(source) );
+	fprintf(logfile, "dest ip         :%s\n",inet_ntoa(dest_in_ip) );
+	//fprintf(logfile, "filter dest ip  :%s\n",inet_ntoa(dest) );
 
 
-	if (strcmp(src_ip, filter_source_ip) == 0
-	    || strcmp(filter_source_ip, any) == 0) {
-		fprintf(logfile, "source IP:bingo\n");
+	if (iphdr->saddr == filter_source_ip ) {
+	//	fprintf(logfile, "source IP:bingo\n");
 		chech_packet_arr[1] = 1;
 	} else {
 		// fprintf(logfile, "source IP:miss\n" );
 	}
 
-	if (strcmp(dest_ip, filter_dest_ip) == 0
-	    || strcmp(filter_dest_ip, any) == 0) {
+	if (iphdr->daddr == filter_dest_ip ) {
 		fprintf(logfile, "destination IP:bingo\n");
 		chech_packet_arr[0] = 1;
 	} else {
