@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 int analyze_ICMP(u_char * data, int size);
 bool analyze_Packet(const u_char * data, bpf_u_int32 size);
@@ -118,8 +119,10 @@ static char buff_1[65535];
 static char buff_2[65535];
 
 static int match = 0;
-
+static bool enable_log = false;
 static FILE *logfile;
+
+#define logprintf(...) if (enable_log) { fprintf(logfile, __VA_ARGS__); }
 
 int main(int argc __attribute__((unused)), char const *argv[])
 {
@@ -132,10 +135,12 @@ int main(int argc __attribute__((unused)), char const *argv[])
 		return (-1);
 	}
 
-	logfile = fopen("output.log", "w");
-	if (logfile == NULL) {
-		fprintf(stderr, "err cant open file");
-		return (-1);
+	if(enable_log){
+		logfile = fopen("output.log", "w");
+		if (logfile == NULL) {
+			fprintf(stderr, "err cant open file");
+			return (-1);
+		}
 	}
 	while(1){
 		int res = input_filter_info();
@@ -159,23 +164,25 @@ int main(int argc __attribute__((unused)), char const *argv[])
 	FILE *fp = fopen("output.pcap", "wb");
 	write_filehdr(fp);
 	output_filter_info();
-	
+
 	while ((pkt = pcap_next(handle, &pkthdr))) {
 		count++;
-		// fprintf(logfile, "==========================================================\n\n");
-		fprintf(logfile,"\nNo.%d\n", count);
-		// fprintf(logfile,"packet length : %d byte\n\n", pkthdr.caplen);
+		// logprintf("==========================================================\n\n");
+		logprintf("\nNo.%d\n", count);
+		// logprintf("packet length : %d byte\n\n", pkthdr.caplen);
 		bool result = analyze_Packet(pkt, pkthdr.caplen);
 		if(result) {
 			match++;
 			write_packet(fp, pkt, pkthdr.caplen);
 		}
-		fprintf(logfile, "result:%d\n", result);
+		logprintf("result:%d\n", result);
 	}
 	pcap_close(handle);
 	printf("match:%d\n", match);
 	printf("count:%d\n", count);
-	fclose(logfile);
+	if(enable_log){
+		fclose(logfile);
+	}
 	return 0;
 }
 
@@ -203,24 +210,24 @@ bool analyze_Packet(const u_char * data, bpf_u_int32 size)
 	uint16_t ether_type=ntohs(eh->ether_type);
 
 	char buf[80];
-	fprintf(logfile,"==== ether info ====\n");
-	fprintf(logfile,"ether dest host:%s\n",MACaddress_int_to_str(eh->ether_dhost,buf,sizeof(buf)));
-	fprintf(logfile,"ether src  host:%s\n",MACaddress_int_to_str(eh->ether_shost,buf,sizeof(buf)));
-	fprintf(logfile,"ether type:0x%02X ",ether_type);
+	logprintf("==== ether info ====\n");
+	logprintf("ether dest host:%s\n",MACaddress_int_to_str(eh->ether_dhost,buf,sizeof(buf)));
+	logprintf("ether src  host:%s\n",MACaddress_int_to_str(eh->ether_shost,buf,sizeof(buf)));
+	logprintf("ether type:0x%02X ",ether_type);
 
 	switch(ether_type){
 		case ETHERTYPE_IP:
-			fprintf(logfile, "[IP]\n");
+			logprintf("[IP]\n");
 			break;
 		case ETHERTYPE_ARP:
-			fprintf(logfile, "[ARP]\n");
+			logprintf("[ARP]\n");
 			return false;
 		default:
-			fprintf(logfile,"\n");
+			logprintf("\n");
 			return false;
 	}
 
-	// fprintf(logfile, "analyze ip\n");
+	// logprintf("analyze ip\n");
 
 	if (lest < sizeof(struct iphdr)) {
 		fprintf(stderr, "error\n");
@@ -233,11 +240,11 @@ bool analyze_Packet(const u_char * data, bpf_u_int32 size)
 
 	oplen = iphdr->ihl * 4 - sizeof(struct iphdr);
 
-	fprintf(logfile, "==== IP info ====\n");
-	fprintf(logfile, "src ip:%s\n", get_src_ip(iphdr));
-	fprintf(logfile, "dest ip:%s\n", get_dest_ip(iphdr));
-	fprintf(logfile, "ip protocol:%s\n", get_ip_protocol(iphdr));
-	fprintf(logfile, "oplen:%u\n", oplen);
+	logprintf("==== IP info ====\n");
+	logprintf("src ip:%s\n", get_src_ip(iphdr));
+	logprintf("dest ip:%s\n", get_dest_ip(iphdr));
+	logprintf("ip protocol:%s\n", get_ip_protocol(iphdr));
+	logprintf("oplen:%u\n", oplen);
 
 	if (oplen > 0) {
 		if (oplen >= 1500) {
@@ -254,11 +261,11 @@ bool analyze_Packet(const u_char * data, bpf_u_int32 size)
 	if (iphdr->protocol == IPPROTO_TCP) {
 		const struct tcphdr *tcphdr = (const struct tcphdr *)ptr;
 
-		fprintf(logfile, "==== TCP info ====\n");
-		fprintf(logfile, "src port:%u\n", ntohs(tcphdr->source));
-		fprintf(logfile, "dest port:%u\n", ntohs(tcphdr->dest));
-		fprintf(logfile, "seq:%u\n", ntohl(tcphdr->seq));
-		fprintf(logfile, "ack:%u\n", ntohl(tcphdr->ack_seq));
+		logprintf("==== TCP info ====\n");
+		logprintf("src port:%u\n", ntohs(tcphdr->source));
+		logprintf("dest port:%u\n", ntohs(tcphdr->dest));
+		logprintf("seq:%u\n", ntohl(tcphdr->seq));
+		logprintf("ack:%u\n", ntohl(tcphdr->ack_seq));
 
 		bool res =
 		    check_packet(iphdr, (const void*)tcphdr);
@@ -267,9 +274,9 @@ bool analyze_Packet(const u_char * data, bpf_u_int32 size)
 	} else if (iphdr->protocol == IPPROTO_UDP) {
 		const struct udphdr *udphdr = (const struct udphdr *)ptr;
 
-		fprintf(logfile, "==== UDP info ====\n");
-		fprintf(logfile, "src port:%u\n", ntohs(udphdr->source));
-		fprintf(logfile, "dest port:%u\n", ntohs(udphdr->dest));
+		logprintf("==== UDP info ====\n");
+		logprintf("src port:%u\n", ntohs(udphdr->source));
+		logprintf("dest port:%u\n", ntohs(udphdr->dest));
 
 		bool res =
 			check_packet(iphdr, (const void*)udphdr);
@@ -302,7 +309,7 @@ char *get_ip_protocol(const struct iphdr *iphdr)
 		"UDP",
 	};
 
-	// fprintf(logfile, "protocol : %u ",iphdr->protocol);
+	// logprintf("protocol : %u ",iphdr->protocol);
 
 	if ((iphdr->protocol) <= 17) {
 		return protocol[iphdr->protocol];
@@ -463,16 +470,15 @@ int input_filter_info(void)
 
 void output_filter_info(void)
 {
-	fprintf(logfile,
+	logprintf(
 		" ======================= filter info =======================\n");
-	fprintf(logfile, " * filter_dest_ip:%s\n", inet_ntoa(filter_dest_ip));
-	fprintf(logfile, " * filter_source_ip:%s\n", inet_ntoa(filter_source_ip));
-	fprintf(logfile, " * filter_protocol:%hhu\n", filter_protocol);
-	fprintf(logfile, " * filter_dest_port:%u\n", ntohs(filter_dest_port));
-	fprintf(logfile, " * filter_source_port:%u\n", ntohs(filter_source_port));
-	fprintf(logfile,
+	logprintf(" * filter_dest_ip:%s\n", inet_ntoa(filter_dest_ip));
+	logprintf(" * filter_source_ip:%s\n", inet_ntoa(filter_source_ip));
+	logprintf(" * filter_protocol:%hhu\n", filter_protocol);
+	logprintf(" * filter_dest_port:%u\n", ntohs(filter_dest_port));
+	logprintf(" * filter_source_port:%u\n", ntohs(filter_source_port));
+	logprintf(
 		" ============================================================\n");
-	// exit(0);
 }
 
 bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
@@ -483,65 +489,65 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 	//struct in_addr source_in_ip = {iphdr->saddr};
 	//struct in_addr dest_in_ip = {iphdr->daddr};
 
-	//fprintf(logfile, "in check packet func \n" );
-	//fprintf(logfile, "src ip          :%s\n",inet_ntoa(source_in_ip) );
-	//fprintf(logfile, "filter source ip:%s\n",inet_ntoa(filter_source_ip) );
-	//fprintf(logfile, "dest ip         :%s\n",inet_ntoa(dest_in_ip) );
-	//fprintf(logfile, "filter dest ip  :%s\n",inet_ntoa(filter_dest_ip) );
+	//logprintf("in check packet func \n" );
+	//logprintf("src ip          :%s\n",inet_ntoa(source_in_ip) );
+	//logprintf("filter source ip:%s\n",inet_ntoa(filter_source_ip) );
+	//logprintf("dest ip         :%s\n",inet_ntoa(dest_in_ip) );
+	//logprintf("filter dest ip  :%s\n",inet_ntoa(filter_dest_ip) );
 
 
 	if (iphdr->saddr == filter_source_ip.s_addr) {
-		//fprintf(logfile, "source IP  :   bingo\n");
+		//logprintf("source IP  :   bingo\n");
 		chech_packet_arr[0] = 1;
 	} else {
-		// fprintf(logfile, "source IP:miss\n" );
+		// logprintf("source IP:miss\n" );
 	}
 
 	if (iphdr->daddr == filter_dest_ip.s_addr) {
-		//fprintf(logfile, "destination IP:bingo\n");
+		//logprintf("destination IP:bingo\n");
 		chech_packet_arr[1] = 1;
 	} else {
-		// fprintf(logfile, "destination IP:miss\n" );
+		// logprintf("destination IP:miss\n" );
 	}
 
 	if (iphdr->protocol==filter_protocol) {
-		//fprintf(logfile, "ip  protocol : bingo\n");
+		//logprintf("ip  protocol : bingo\n");
 		chech_packet_arr[2] = 1;
 	} else {
-		// fprintf(logfile, "IP protocol:miss\n" );
+		// logprintf("IP protocol:miss\n" );
 	}
 
 	if (filter_protocol == IPPROTO_TCP){
 		const struct tcphdr *tcphdr = (const struct tcphdr *)l4hdr;
 
 		if (tcphdr->source==filter_source_port) {
-			//fprintf(logfile, "source  port : bingo\n");
+			//logprintf("source  port : bingo\n");
 		chech_packet_arr[3] = 1;
 		} else {
-			// fprintf(logfile, "source port:miss\n" );
+			// logprintf("source port:miss\n" );
 		}
 
 		if (tcphdr->dest==filter_dest_port) {
-			//fprintf(logfile, "dest  port  :  bingo\n");
+			//logprintf("dest  port  :  bingo\n");
 			chech_packet_arr[4] = 1;
 		} else {
-			// fprintf(logfile, "destination port:miss\n" );
+			// logprintf("destination port:miss\n" );
 		}
 	}else if(filter_protocol == IPPROTO_UDP){
 		const struct udphdr *udphdr = (const struct udphdr *)l4hdr;
 
 		if (udphdr->source==filter_source_port) {
-			//fprintf(logfile, "source  port : bingo\n");
+			//logprintf("source  port : bingo\n");
 			chech_packet_arr[3] = 1;
 		} else {
-			// fprintf(logfile, "source port:miss\n" );
+			// logprintf("source port:miss\n" );
 		}
 
 		if (udphdr->dest==filter_dest_port) {
-			//fprintf(logfile, "dest  port  :  bingo\n");
+			//logprintf("dest  port  :  bingo\n");
 			chech_packet_arr[4] = 1;
 		} else {
-			// fprintf(logfile, "destination port:miss\n" );
+			// logprintf("destination port:miss\n" );
 		}
 
 	}
