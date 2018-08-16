@@ -484,8 +484,6 @@ void output_filter_info(void)
 bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 {
 	//const char *any = "any";
-	int chech_packet_arr[5] = { 0 };
-	int check_count = 0;
 	//struct in_addr source_in_ip = {iphdr->saddr};
 	//struct in_addr dest_in_ip = {iphdr->daddr};
 
@@ -498,23 +496,23 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 
 	if (iphdr->saddr == filter_source_ip.s_addr) {
 		//logprintf("source IP  :   bingo\n");
-		chech_packet_arr[0] = 1;
 	} else {
 		// logprintf("source IP:miss\n" );
+		return false;
 	}
 
 	if (iphdr->daddr == filter_dest_ip.s_addr) {
 		//logprintf("destination IP:bingo\n");
-		chech_packet_arr[1] = 1;
 	} else {
 		// logprintf("destination IP:miss\n" );
+		return false;
 	}
 
 	if (iphdr->protocol==filter_protocol) {
 		//logprintf("ip  protocol : bingo\n");
-		chech_packet_arr[2] = 1;
 	} else {
 		// logprintf("IP protocol:miss\n" );
+		return false;
 	}
 
 	if (filter_protocol == IPPROTO_TCP){
@@ -522,45 +520,33 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 
 		if (tcphdr->source==filter_source_port) {
 			//logprintf("source  port : bingo\n");
-		chech_packet_arr[3] = 1;
 		} else {
 			// logprintf("source port:miss\n" );
+			return false;
 		}
 
 		if (tcphdr->dest==filter_dest_port) {
 			//logprintf("dest  port  :  bingo\n");
-			chech_packet_arr[4] = 1;
 		} else {
 			// logprintf("destination port:miss\n" );
+			return false;
 		}
 	}else if(filter_protocol == IPPROTO_UDP){
 		const struct udphdr *udphdr = (const struct udphdr *)l4hdr;
 
 		if (udphdr->source==filter_source_port) {
 			//logprintf("source  port : bingo\n");
-			chech_packet_arr[3] = 1;
 		} else {
 			// logprintf("source port:miss\n" );
+			return false;
 		}
 
 		if (udphdr->dest==filter_dest_port) {
 			//logprintf("dest  port  :  bingo\n");
-			chech_packet_arr[4] = 1;
 		} else {
 			// logprintf("destination port:miss\n" );
-		}
-
-	}
-
-	int i;
-	for (i = 0; i < 5; i++) {
-		if (chech_packet_arr[i] == 1) {
-			check_count++;
+			return false;
 		}
 	}
-	if (check_count == 5) {
-		return 1;
-	} else {
-		return 0;
-	}
+	return true;
 }
