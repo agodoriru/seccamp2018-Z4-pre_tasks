@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <stdlib.h>
+#include "rdtsc.h"
 
 int analyze_ICMP(u_char * data, int size);
 bool analyze_Packet(const u_char * data, bpf_u_int32 size);
@@ -159,19 +160,22 @@ int main(int argc __attribute__((unused)), char const *argv[])
 	FILE *fp = fopen("output.pcap", "wb");
 	write_filehdr(fp);
 	output_filter_info();
-	
+
+	unsigned long long cnt_start, cnt_end;
+        cnt_start = rdtsc();
+
 	while ((pkt = pcap_next(handle, &pkthdr))) {
 		count++;
 		// fprintf(logfile, "==========================================================\n\n");
 		fprintf(logfile,"\nNo.%d\n", count);
 		// fprintf(logfile,"packet length : %d byte\n\n", pkthdr.caplen);
-		bool result = analyze_Packet(pkt, pkthdr.caplen);
-		if(result) {
+		if (analyze_Packet(pkt, pkthdr.caplen) == true) {
 			match++;
 			write_packet(fp, pkt, pkthdr.caplen);
 		}
-		fprintf(logfile, "result:%d\n", result);
 	}
+	cnt_end = rdtsc();
+        printf("rdtsc:%llu\n", cnt_end-cnt_start);
 	pcap_close(handle);
 	printf("match:%d\n", match);
 	printf("count:%d\n", count);
@@ -262,6 +266,8 @@ bool analyze_Packet(const u_char * data, bpf_u_int32 size)
 
 		bool res =
 		    check_packet(iphdr, (const void*)tcphdr);
+
+		fprintf(logfile, "result:%d\n", res);
 
 		return res;
 	} else if (iphdr->protocol == IPPROTO_UDP) {
@@ -480,6 +486,13 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 	//const char *any = "any";
 	int chech_packet_arr[5] = { 0 };
 	int check_count = 0;
+
+	if(iphdr->protocol == IPPROTO_TCP){
+		const struct tcphdr *tcphdr = (const struct tcphdr *)l4hdr;
+	}else if(iphdr ->protocol == IPPROTO_UDP){
+		const struct udphdr *udphdr = (const struct udphdr *)l4hdr;
+	}
+
 	//struct in_addr source_in_ip = {iphdr->saddr};
 	//struct in_addr dest_in_ip = {iphdr->daddr};
 
@@ -511,9 +524,7 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 		// fprintf(logfile, "IP protocol:miss\n" );
 	}
 
-	if (filter_protocol == IPPROTO_TCP){
-		const struct tcphdr *tcphdr = (const struct tcphdr *)l4hdr;
-
+	if (iphdr->IPPROTO_TCP){
 		if (tcphdr->source==filter_source_port) {
 			//fprintf(logfile, "source  port : bingo\n");
 		chech_packet_arr[3] = 1;
@@ -527,9 +538,7 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 		} else {
 			// fprintf(logfile, "destination port:miss\n" );
 		}
-	}else if(filter_protocol == IPPROTO_UDP){
-		const struct udphdr *udphdr = (const struct udphdr *)l4hdr;
-
+	}else if(iphdr->IPPRPTP_UDP){
 		if (udphdr->source==filter_source_port) {
 			//fprintf(logfile, "source  port : bingo\n");
 			chech_packet_arr[3] = 1;

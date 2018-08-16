@@ -1,0 +1,15 @@
+diff a/p2/main.c b/p2/main.c	(rejected hunks)
+@@ -169,10 +169,12 @@ int main(int argc __attribute__((unused)), char const *argv[])
+ 		// fprintf(logfile, "==========================================================\n\n");
+ 		fprintf(logfile,"\nNo.%d\n", count);
+ 		// fprintf(logfile,"packet length : %d byte\n\n", pkthdr.caplen);
+-		if (analyze_Packet(pkt, pkthdr.caplen) == true) {
++		bool result = analyze_Packet(pkt, pkthdr.caplen);
++		if (result) {
+ 			match++;
+ 			write_packet(fp, pkt, pkthdr.caplen);
+ 		}
++		fprintf(logfile,"result:%d\n",result);
+ 	}
+ 	cnt_end = rdtsc();
+         printf("rdtsc:%llu\n", cnt_end-cnt_start);
