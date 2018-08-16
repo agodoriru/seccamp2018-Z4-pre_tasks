@@ -397,8 +397,8 @@ bool check_packet(const struct iphdr *iphdr, const void *l4hdr)
 	int check_count = 0;
 	const struct tcphdr *tcphdr = (const struct tcphdr *)l4hdr;
 
-	struct in_addr source = { filter_source_ip };
-	struct in_addr dest   = { filter_dest_ip };
+	//struct in_addr source = { filter_source_ip };
+	//struct in_addr dest   = { filter_dest_ip };
 	struct in_addr source_in_ip = {iphdr->saddr};
 	struct in_addr dest_in_ip = {iphdr->daddr};
 
