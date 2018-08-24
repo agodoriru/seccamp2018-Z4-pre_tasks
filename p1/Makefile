@@ -1,4 +1,4 @@
-CC=gcc
+CC=clang
 OBJS=main.o
 SRCS=$(OBJS:%.o=%.c)
 CFLAGS=-g -Wall
