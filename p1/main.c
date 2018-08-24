@@ -1,50 +1,51 @@
-#include <sys/wait.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <pcap.h>
-#include <pcap/pcap.h>
-#include <sys/types.h>
-#include <sys/time.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-//#include <asm/types.h>
+#include <errno.h>
+#include <signal.h>
+#include <pcap.h>
+#include <pcap/pcap.h>
+#include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <linux/if_packet.h>
-#include <linux/if_ether.h> 
-#include <linux/if_arcnet.h> 
+#include <linux/if_ether.h>
+#include <linux/if_arcnet.h>
 #include <linux/version.h>
-#include <net/if.h>
-#include <net/if_arp.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <signal.h>
+#include <net/if.h>
+#include <net/if_arp.h>
 #include <net/ethernet.h>
-#include <linux/if.h>
-#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/if_ether.h>
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
+#include <arpa/inet.h>
 
-int analyze_ICMP(u_char *data,int size);
-int analyze_Packet(u_char *data,int size);
+
+
+int analyze_ICMP(u_char *data, unsigned int size);
+int analyze_Packet(const u_char *data,bpf_u_int32 size);
 int analyze_ARP(u_char *data,int size);
 
 int print_EtherHeader(struct ether_header *eh,FILE *fp);
 char *MACaddress_int_to_str(u_char *hwaddr,char *buf,socklen_t size);
 char *IP_address_int_to_IP_address_str(u_int32_t ip,char *buff,socklen_t size);
 int print_ARP(struct ether_arp *arp,FILE *fp);
-int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *option,int lest,FILE *fp2);
+int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *option,unsigned int lest,FILE *fp2);
 int print_IP_header(struct iphdr *iphdr,FILE *fp);
-int analyze_IP(u_char *data,int size);
+int analyze_IP(u_char *data,unsigned int size);
 
 
-FILE *f_data;
+static FILE *f_data;
+
 
 struct icmp_hdr{
     uint8_t type;
@@ -54,12 +55,12 @@ struct icmp_hdr{
     uint16_t seqnum;
 };
 
-int main(int argc, char const *argv[]){
+int main(int argc __attribute__((unused)), char const *argv[]){
 
-    u_char *pkt;
+    const u_char *pkt;
     char errbuf[PCAP_ERRBUF_SIZE];
     struct pcap_pkthdr pkthdr;
-
+    // u_char *ptr = pkt;
     if(argv[1]==NULL){
     	fprintf(stdout, "input data\n");
     	return (-1);
@@ -86,7 +87,7 @@ int main(int argc, char const *argv[]){
 
 			fprintf(stdout,"No.%d\n", count);
 			fprintf(stdout,"packet length : %d byte\n\n", pkthdr.caplen);
-			print_EtherHeader((struct ether_header *)pkt,stdout);
+			// print_EtherHeader((struct ether_header *)pkt,stdout);
 			analyze_Packet(pkt,pkthdr.caplen);
 		
 	}
@@ -97,13 +98,13 @@ int main(int argc, char const *argv[]){
 	return 0;
 }
 
-int analyze_Packet(u_char *data,int size){
+int analyze_Packet(const u_char *data, bpf_u_int32 size){
 	
 	u_char *ptr;
-	int lest;
+	bpf_u_int32 lest;
 	struct ether_header *eh;
 
-	ptr=data;
+	ptr=(u_char*)data;
 	lest=size;
 
 	if(lest<sizeof(struct ether_header)){
@@ -117,26 +118,27 @@ int analyze_Packet(u_char *data,int size){
 	lest-=sizeof(struct ether_header);
 
 	if(ntohs(eh->ether_type)==ETHERTYPE_IP){
-		analyze_IP(ptr,lest);
+		print_EtherHeader(eh, stdout);
+		analyze_IP(ptr,(unsigned int)lest);
 	}
 
 	return 0;
 
 }
 
-int analyze_IP(u_char *data,int size){
+int analyze_IP(u_char *data,unsigned int size){
 
 	u_char *ptr;
-	int lest;
+	unsigned int lest;
 	struct iphdr *iphdr;
 
-	u_char *option;
-	int oplen;
+	// u_char *option;
+	unsigned int oplen;
 
 	ptr=data;
 	lest=size;
 
-	if(lest<sizeof(struct iphdr)){
+	if((unsigned long)lest<sizeof(struct iphdr)){
 		fprintf(stderr, "error\n");
 		return (-1);
 	}
@@ -155,7 +157,7 @@ int analyze_IP(u_char *data,int size){
 			return (-1);
 		}
 
-		option=ptr;
+		// option=ptr;
 		ptr+=oplen;
 		lest-=oplen;
 		// IP option (variable length)
@@ -244,13 +246,12 @@ int print_IP_header(struct iphdr *iphdr,FILE *fp){
     return 0;
 }
 
-int analyze_ICMP(u_char *data,int size){
+int analyze_ICMP(u_char *data,unsigned int size){
 
 	u_char *ptr;
-	int lest;
 
 	ptr=data;
-	lest=size;
+	unsigned int lest=size;
 	struct icmp *icmp;
 
 	icmp=(struct icmp *)ptr;
@@ -262,11 +263,11 @@ int analyze_ICMP(u_char *data,int size){
 
 }
 
-int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
+int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,unsigned int lest,FILE *fp2){
 
 	static char *icmp_type[]={
 
-		"Echo Reply",
+	"Echo Reply",
         "undefined",
         "undifined",
         "Destination Unreachable",
@@ -295,7 +296,7 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 	
 
 	fprintf(fp1, "\n===============ICMP info=================\n");
-	
+
 	if(icmp->icmp_type<=18){
 		fprintf(fp1, "%s\n",icmp_type[icmp_hdr->type]);
 	}else{
@@ -305,19 +306,16 @@ int print_ICMP(struct icmp *icmp,FILE *fp1,u_char *data,int lest,FILE *fp2){
 	fprintf(fp1, "icmp code=%u\n",icmp_hdr->code);
 	fprintf(fp1, "icmp check sum:%u\n",ntohs(icmp_hdr->cksum));
 
-	int i;
-
 	if(icmp_hdr->type==0&&icmp_hdr->type==0){//Echo Request
-
-		uint8_t *raw_data=(struct icmp_hdr *)(icmp_hdr+1);
-		int raw_data_length=(lest-sizeof(struct icmp_hdr));
+		uint8_t *raw_data = (struct icmp_hdr *)(icmp_hdr+1);
+		size_t raw_data_length=((unsigned long)lest-sizeof(struct icmp_hdr));
 
 		fprintf(fp1, "icmp id:%u\n",ntohs(icmp_hdr->iden));//4
 		fprintf(fp1, "icmp sequence:%u\n",ntohs(icmp_hdr->seqnum));//4
-		fprintf(fp1, "data size:%ubytes\n", raw_data_length);
+		fprintf(fp1, "data size:%zubytes\n", raw_data_length);
 		fprintf(fp1, "raw data(hex)\n\n" );
 
-		for(i=0;i<raw_data_length;i++){
+		for(int i=0;i<(int)raw_data_length;i++){
 			
 			if(i==0){
 			}else if(i%16==0){
